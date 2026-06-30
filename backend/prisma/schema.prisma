@@ -284,6 +284,8 @@ model AttendanceRecord {
   status AttendanceStatus
 
   createdAt DateTime @default(now())
+
+  @@unique([sessionId, studentId])
 }
 
 model Assessment {

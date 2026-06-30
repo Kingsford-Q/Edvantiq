@@ -52,7 +52,12 @@ export async function loginController(req: Request, res: Response) {
       user: {
         id: user.id,
         email: user.email,
+        fullName: user.fullName,
         role: user.role?.name,
+        schoolId: user.schoolId,
+        phoneNumber: user.phoneNumber,
+        address: user.address,
+        profileImageUrl: user.profileImageUrl,
       },
       token,
     });

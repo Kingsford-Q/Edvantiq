@@ -162,6 +162,25 @@ export async function createFeePaymentController(req: Request, res: Response) {
   }
 }
 
+export async function getFeePaymentsController(req: Request, res: Response) {
+  try {
+    const schoolId = (req as any).schoolId;
+
+    const payments = await prisma.feePayment.findMany({
+      where: { schoolId },
+      include: {
+        student: true,
+        fee: true,
+      },
+      orderBy: { date: "desc" },
+    });
+
+    return res.status(200).json(payments);
+  } catch (error: any) {
+    return res.status(400).json({ message: safeErrorMessage(error) });
+  }
+}
+
 export async function getStudentBalanceController(req: Request, res: Response) {
   try {
     const schoolId = (req as any).schoolId;
@@ -201,6 +220,11 @@ export async function createInvoiceController(req: Request, res: Response) {
     const schoolId = (req as any).schoolId;
     let studentId = req.params.studentId;
     if (Array.isArray(studentId)) studentId = studentId[0];
+
+    const student = await prisma.student.findFirst({ where: { id: studentId, schoolId } });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
     const studentFees = await prisma.studentFee.findMany({
       where: { studentId, schoolId },
@@ -245,13 +269,38 @@ export async function createInvoiceController(req: Request, res: Response) {
     });
 
     return res.status(201).json({
-      invoice,
-      totalPaid,
-      balance: totalAmount - totalPaid,
+      ...invoice,
+      paidAmount: Math.min(totalPaid, totalAmount),
     });
   } catch (error: any) {
     return res.status(400).json({ message: safeErrorMessage(error) });
   }
+}
+
+/**
+ * Invoices don't store a paid amount directly (payments aren't tied to a
+ * specific invoice in the schema) — derive it from the student's total
+ * FeePayment sum, capped at the invoice total, so the frontend can render
+ * paid/balance without doing this math itself.
+ */
+async function withPaidAmount<T extends { studentId: string; totalAmount: number }>(
+  invoices: T[],
+  schoolId: string
+) {
+  const studentIds = [...new Set(invoices.map((i) => i.studentId))];
+
+  const sums = await prisma.feePayment.groupBy({
+    by: ["studentId"],
+    where: { studentId: { in: studentIds }, schoolId },
+    _sum: { amountPaid: true },
+  });
+
+  const totalPaidByStudent = new Map(sums.map((s) => [s.studentId, s._sum.amountPaid || 0]));
+
+  return invoices.map((invoice) => ({
+    ...invoice,
+    paidAmount: Math.min(totalPaidByStudent.get(invoice.studentId) || 0, invoice.totalAmount),
+  }));
 }
 
 export async function getInvoicesController(req: Request, res: Response) {
@@ -266,7 +315,7 @@ export async function getInvoicesController(req: Request, res: Response) {
       },
     });
 
-    return res.status(200).json(invoices);
+    return res.status(200).json(await withPaidAmount(invoices, schoolId));
   } catch (error: any) {
     return res.status(400).json({ message: safeErrorMessage(error) });
   }
@@ -296,7 +345,9 @@ export async function getInvoiceController(req: Request, res: Response) {
       return res.status(404).json({ message: "Invoice not found" });
     }
 
-    return res.status(200).json(invoice);
+    const [withPaid] = await withPaidAmount([invoice], schoolId);
+
+    return res.status(200).json(withPaid);
   } catch (error: any) {
     return res.status(400).json({ message: safeErrorMessage(error) });
   }

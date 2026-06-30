@@ -4,6 +4,7 @@ import {
   approveAccessRequestController,
   rejectAccessRequestController,
   getAccessRequestsController,
+  getMyAccessRequestsController,
 } from "./controller.js";
 
 import { authMiddleware } from "../../middleware/authMiddleware.js";
@@ -19,6 +20,14 @@ router.post(
   authMiddleware,
   requireSuperAdmin,
   requestAccessController
+);
+
+// SUPER ADMIN views their own requests across all schools
+router.get(
+  "/mine",
+  authMiddleware,
+  requireSuperAdmin,
+  getMyAccessRequestsController
 );
 
 // School admin views pending requests

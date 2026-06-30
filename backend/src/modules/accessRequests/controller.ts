@@ -119,6 +119,24 @@ export async function rejectAccessRequestController(req: Request, res: Response)
 }
 
 
+// =========================
+// GET MY OWN REQUESTS (Super Admin tracking requests across schools)
+export async function getMyAccessRequestsController(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+
+    const requests = await prisma.accessRequest.findMany({
+      where: { requestedById: user.id },
+      include: { school: true },
+      orderBy: { createdAt: "desc" },
+    });
+
+    return res.status(200).json(requests);
+  } catch (error: any) {
+    return res.status(500).json({ message: safeErrorMessage(error) });
+  }
+}
+
 export async function requestAccessController(req: Request, res: Response) {
   try {
     const user = (req as any).user;
@@ -128,6 +146,11 @@ export async function requestAccessController(req: Request, res: Response) {
       return res.status(400).json({
         message: "schoolId is required",
       });
+    }
+
+    const school = await prisma.school.findUnique({ where: { id: schoolId } });
+    if (!school) {
+      return res.status(404).json({ message: "School not found" });
     }
 
     const request = await prisma.accessRequest.create({

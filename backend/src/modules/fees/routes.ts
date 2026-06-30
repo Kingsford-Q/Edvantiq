@@ -11,6 +11,7 @@ import {
   updateFeeStructureController,
   deleteFeeStructureController,
   createFeePaymentController,
+  getFeePaymentsController,
   getStudentBalanceController,
   createInvoiceController,
   getInvoicesController,
@@ -83,6 +84,17 @@ router.post(
   tenantMiddleware,
   requirePermission(PERMISSIONS.RECORD_PAYMENT),
   createFeePaymentController
+);
+
+/**
+ * GET ALL PAYMENTS
+ */
+router.get(
+  "/payments",
+  authMiddleware,
+  tenantMiddleware,
+  requirePermission(PERMISSIONS.VIEW_FEES),
+  getFeePaymentsController
 );
 
 /**

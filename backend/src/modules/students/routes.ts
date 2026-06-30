@@ -2,6 +2,7 @@ import { Router } from "express";
 import { authMiddleware } from "../../middleware/authMiddleware.js";
 import { tenantMiddleware } from "../../middleware/tenantMiddleware.js";
 import { requirePermission } from "../../middleware/requirePermission.js";
+import { rbac } from "../../middleware/rbacMiddleware.js";
 import { PERMISSIONS } from "../../rbac/permissions.js";
 
 import {
@@ -10,6 +11,8 @@ import {
   getStudentController,
   updateStudentController,
   deleteStudentController,
+  getMyStudentProfileController,
+  getMyChildrenController,
 } from "./controller.js";
 
 const router = Router();
@@ -34,6 +37,28 @@ router.get(
   tenantMiddleware,
   requirePermission(PERMISSIONS.VIEW_STUDENT),
   getStudentsController
+);
+
+/**
+ * SELF-SERVICE: STUDENT viewing their own profile
+ */
+router.get(
+  "/me",
+  authMiddleware,
+  tenantMiddleware,
+  rbac(["STUDENT"]),
+  getMyStudentProfileController
+);
+
+/**
+ * SELF-SERVICE: PARENT viewing their children
+ */
+router.get(
+  "/my-children",
+  authMiddleware,
+  tenantMiddleware,
+  rbac(["PARENT"]),
+  getMyChildrenController
 );
 
 /**

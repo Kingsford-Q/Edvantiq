@@ -134,3 +134,57 @@ export async function deleteStudentController(req: Request, res: Response) {
     return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
+
+// =========================
+// SELF-SERVICE: a logged-in STUDENT viewing their own profile
+export async function getMyStudentProfileController(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const schoolId = (req as any).schoolId;
+
+    const student = await prisma.student.findFirst({
+      where: { userId: user.id, schoolId },
+      include: {
+        enrollments: { include: { class: true } },
+        attendanceRecords: true,
+        results: { include: { assessment: true } },
+        StudentFee: true,
+      },
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "No student profile linked to this account" });
+    }
+
+    return res.status(200).json(student);
+  } catch (error: any) {
+    return res.status(400).json({ message: safeErrorMessage(error) });
+  }
+}
+
+// =========================
+// SELF-SERVICE: a logged-in PARENT viewing their children
+export async function getMyChildrenController(req: Request, res: Response) {
+  try {
+    const user = (req as any).user;
+    const schoolId = (req as any).schoolId;
+
+    const links = await prisma.parentStudent.findMany({
+      where: { parentId: user.id, schoolId },
+      include: {
+        student: {
+          include: {
+            enrollments: { include: { class: true } },
+            attendanceRecords: true,
+            results: { include: { assessment: true } },
+            StudentFee: true,
+          },
+        },
+      },
+    });
+
+    return res.status(200).json(links.map((l) => l.student));
+  } catch (error: any) {
+    return res.status(400).json({ message: safeErrorMessage(error) });
+  }
+}

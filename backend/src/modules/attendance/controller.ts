@@ -61,12 +61,10 @@ export async function markAttendanceController(req: Request, res: Response) {
       return res.status(404).json({ message: "Student not found" });
     }
 
-    const record = await prisma.attendanceRecord.create({
-      data: {
-        sessionId,
-        studentId,
-        status,
-      },
+    const record = await prisma.attendanceRecord.upsert({
+      where: { sessionId_studentId: { sessionId, studentId } },
+      create: { sessionId, studentId, status },
+      update: { status },
     });
 
     return res.status(201).json(record);
@@ -85,6 +83,7 @@ export async function getAttendanceSessionsController(req: Request, res: Respons
         class: true,
         subject: true,
         teacher: true,
+        records: true,
       },
       orderBy: {
         createdAt: "desc",

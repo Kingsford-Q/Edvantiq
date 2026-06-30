@@ -5,6 +5,7 @@ import rateLimit from "express-rate-limit";
 
 import authRoutes from "./modules/auth/routes.js";
 import userRoutes from "./modules/users/routes.js";
+import meRoutes from "./modules/users/me.routes.js";
 import schoolRoutes from "./modules/schools/routes.js";
 import studentRoutes from "./modules/students/routes.js";
 import enrollmentRoutes from "./modules/enrollments/routes.js";
@@ -77,6 +78,7 @@ app.get("/api/protected", authMiddleware, (req, res) => {
 app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/access-requests", accessRequestRoutes);
 app.use("/api/schools", schoolRoutes);
+app.use("/api/me", meRoutes);
 
 app.use("/api/onboarding", onboardingRoutes);
 
