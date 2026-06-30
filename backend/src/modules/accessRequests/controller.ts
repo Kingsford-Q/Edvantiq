@@ -46,13 +46,19 @@ export async function approveAccessRequestController(req: Request, res: Response
     const expiresAt = new Date();
     expiresAt.setHours(expiresAt.getHours() + 2);
 
-    const updated = await prisma.accessRequest.update({
-      where: { id },
+    const result = await prisma.accessRequest.updateMany({
+      where: { id, schoolId },
       data: {
         status: "APPROVED",
         expiresAt,
       },
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Access request not found" });
+    }
+
+    const updated = await prisma.accessRequest.findUnique({ where: { id } });
 
     // 🔥 AUDIT LOG
     await logAction({
@@ -80,12 +86,18 @@ export async function rejectAccessRequestController(req: Request, res: Response)
     const schoolId = (req as any).schoolId;
     const  id  = req.params.id as string;
 
-    const updated = await prisma.accessRequest.update({
-      where: { id },
+    const result = await prisma.accessRequest.updateMany({
+      where: { id, schoolId },
       data: {
         status: "REJECTED",
       },
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Access request not found" });
+    }
+
+    const updated = await prisma.accessRequest.findUnique({ where: { id } });
 
     // 🔥 AUDIT LOG
     await logAction({

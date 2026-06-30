@@ -28,7 +28,24 @@ export async function createSessionController(req: Request, res: Response) {
 
 export async function markAttendanceController(req: Request, res: Response) {
   try {
+    const schoolId = (req as any).schoolId;
     const { sessionId, studentId, status } = req.body;
+
+    const session = await prisma.attendanceSession.findFirst({
+      where: { id: sessionId, schoolId },
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: "Attendance session not found" });
+    }
+
+    const student = await prisma.student.findFirst({
+      where: { id: studentId, schoolId },
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
     const record = await prisma.attendanceRecord.create({
       data: {
@@ -68,6 +85,7 @@ export async function getAttendanceSessionsController(req: Request, res: Respons
 
 export async function getAttendanceRecordsController(req: Request, res: Response) {
   try {
+    const schoolId = (req as any).schoolId;
     // ensure sessionId is a string (Express params can be string | string[])
     const sessionIdParam = req.params.sessionId;
     const sessionId = Array.isArray(sessionIdParam) ? sessionIdParam[0] : sessionIdParam;
@@ -79,6 +97,9 @@ export async function getAttendanceRecordsController(req: Request, res: Response
     const records = await prisma.attendanceRecord.findMany({
       where: {
         sessionId,
+        session: {
+          schoolId,
+        },
       },
       include: {
         student: true,

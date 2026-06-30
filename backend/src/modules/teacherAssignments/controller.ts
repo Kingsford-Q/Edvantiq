@@ -3,7 +3,7 @@ import { assignTeacher } from "./service.js";
 
 export async function assignTeacherController(req: Request, res: Response) {
   try {
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const assignment = await assignTeacher({
       ...req.body,

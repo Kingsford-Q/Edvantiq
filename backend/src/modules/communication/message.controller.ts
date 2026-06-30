@@ -6,7 +6,7 @@ import { prisma } from "../../prisma.js";
 
 export async function sendMessageController(req: Request, res: Response) {
   try {
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
     const senderId = (req as any).user.id;
 
     const message = await sendMessage({

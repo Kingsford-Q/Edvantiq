@@ -87,14 +87,21 @@ export async function updateStudentController(req: Request, res: Response) {
   : req.params.studentId;
     const schoolId = (req as any).schoolId;
 
-    const updated = await prisma.student.update({
+    const result = await prisma.student.updateMany({
       where: {
         id: studentId,
+        schoolId,
       },
       data: {
         ...req.body,
       },
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const updated = await prisma.student.findUnique({ where: { id: studentId } });
 
     return res.status(200).json(updated);
   } catch (error: any) {
@@ -107,12 +114,18 @@ export async function deleteStudentController(req: Request, res: Response) {
     const studentId = Array.isArray(req.params.studentId)
   ? req.params.studentId[0]
   : req.params.studentId;
+    const schoolId = (req as any).schoolId;
 
-    await prisma.student.delete({
+    const result = await prisma.student.deleteMany({
       where: {
         id: studentId,
+        schoolId,
       },
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
     return res.status(200).json({
       message: "Student deleted successfully",

@@ -7,6 +7,7 @@ import {
 } from "./controller.js";
 
 import { authMiddleware } from "../../middleware/authMiddleware.js";
+import { tenantMiddleware } from "../../middleware/tenantMiddleware.js";
 import { requireSuperAdmin } from "../../middleware/requireSuperAdmin.js";
 import { rbac } from "../../middleware/rbacMiddleware.js";
 
@@ -24,6 +25,7 @@ router.post(
 router.get(
   "/",
   authMiddleware,
+  tenantMiddleware,
   rbac(["ADMIN"]),
   getAccessRequestsController
 );
@@ -32,6 +34,7 @@ router.get(
 router.patch(
   "/:id/approve",
   authMiddleware,
+  tenantMiddleware,
   rbac(["ADMIN"]),
   approveAccessRequestController
 );
@@ -40,6 +43,7 @@ router.patch(
 router.patch(
   "/:id/reject",
   authMiddleware,
+  tenantMiddleware,
   rbac(["ADMIN"]),
   rejectAccessRequestController
 );

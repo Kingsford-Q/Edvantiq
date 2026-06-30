@@ -4,7 +4,7 @@ import { prisma } from "../../prisma.js";
 
 export async function createSubjectController(req: Request, res: Response) {
   try {
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const subject = await createSubject({
       ...req.body,

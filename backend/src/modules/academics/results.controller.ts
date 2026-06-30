@@ -25,7 +25,24 @@ export async function createAssessmentController(req: Request, res: Response) {
 
 export async function enterResultController(req: Request, res: Response) {
   try {
+    const schoolId = (req as any).schoolId;
     const { assessmentId, studentId, score, remark } = req.body;
+
+    const assessment = await prisma.assessment.findFirst({
+      where: { id: assessmentId, schoolId },
+    });
+
+    if (!assessment) {
+      return res.status(404).json({ message: "Assessment not found" });
+    }
+
+    const student = await prisma.student.findFirst({
+      where: { id: studentId, schoolId },
+    });
+
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
 
     const result = await prisma.assessmentResult.create({
       data: {
@@ -66,11 +83,15 @@ export async function getResultsController(req: Request, res: Response) {
 
 export async function getStudentResultsController(req: Request, res: Response) {
   try {
+    const schoolId = (req as any).schoolId;
     const studentId = Array.isArray(req.params.studentId) ? req.params.studentId[0] : req.params.studentId;
 
     const results = await prisma.assessmentResult.findMany({
       where: {
         studentId,
+        assessment: {
+          schoolId,
+        },
       },
       include: {
         assessment: true,

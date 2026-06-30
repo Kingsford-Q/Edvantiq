@@ -3,7 +3,7 @@ import { enrollStudent } from "./service.js";
 
 export async function enrollStudentController(req: Request, res: Response) {
   try {
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const enrollment = await enrollStudent({
       ...req.body,

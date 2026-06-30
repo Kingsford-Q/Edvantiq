@@ -4,7 +4,7 @@ import { prisma } from "../../prisma.js";
 
 export async function createClassController(req: Request, res: Response) {
   try {
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const classData = await createClass({
       ...req.body,
@@ -84,10 +84,16 @@ export async function updateClassController(req: Request, res: Response) {
       : req.params.classId;
     const schoolId = (req as any).schoolId;
 
-    const updated = await prisma.class.update({
-      where: { id: classId },
+    const result = await prisma.class.updateMany({
+      where: { id: classId, schoolId },
       data: req.body,
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Class not found" });
+    }
+
+    const updated = await prisma.class.findUnique({ where: { id: classId } });
 
     return res.status(200).json(updated);
   } catch (error: any) {
@@ -100,10 +106,15 @@ export async function deleteClassController(req: Request, res: Response) {
     const classId = Array.isArray(req.params.classId)
       ? req.params.classId[0]
       : req.params.classId;
+    const schoolId = (req as any).schoolId;
 
-    await prisma.class.delete({
-      where: { id: classId },
+    const result = await prisma.class.deleteMany({
+      where: { id: classId, schoolId },
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Class not found" });
+    }
 
     return res.status(200).json({
       message: "Class deleted successfully",

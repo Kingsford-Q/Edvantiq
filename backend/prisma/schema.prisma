@@ -50,6 +50,7 @@ model User {
   phoneNumber String?
   address     String?
   profileImageUrl String?
+  emergencyContact String?
 
   // optional admin metadata
   position String? // e.g. Principal, Headmaster
@@ -69,6 +70,9 @@ model User {
 
   student Student?
   teacher Teacher?
+  staffProfile StaffProfile?
+
+  parentLinks ParentStudent[] @relation("ParentRelation")
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -127,6 +131,8 @@ model Student {
 
   StudentFee StudentFee[]
   Invoice    Invoice[]
+
+  parentLinks ParentStudent[]
 }
 
 model StudentFee {

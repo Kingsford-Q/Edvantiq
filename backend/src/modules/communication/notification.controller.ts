@@ -5,7 +5,7 @@ import { createNotification } from "./notification.service.js";
 
 export async function createNotificationController(req: Request, res: Response) {
   try {
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const notification = await createNotification({
       ...req.body,

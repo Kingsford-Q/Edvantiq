@@ -1,4 +1,5 @@
 import { prisma } from "../../prisma.js";
+import { hashPassword } from "../../utils/password.js";
 import { validateRequired } from "../../utils/validatePayload.js";
 
 export async function onboardParent(data: {
@@ -17,12 +18,23 @@ export async function onboardParent(data: {
   validateRequired(data, ["fullName", "email", "password", "studentIds"]);
 
   return await prisma.$transaction(async (tx) => {
+    // 0. Ensure all linked students belong to this school (tenant isolation)
+    const matchingStudents = await tx.student.count({
+      where: { id: { in: data.studentIds }, schoolId: data.schoolId },
+    });
+
+    if (matchingStudents !== data.studentIds.length) {
+      throw new Error("One or more students do not belong to this school");
+    }
+
     // 1. Create user
+    const hashedPassword = await hashPassword(data.password);
+
     const user = await tx.user.create({
       data: {
         fullName: data.fullName,
         email: data.email,
-        password: data.password, // assume hashed in auth layer
+        password: hashedPassword,
         schoolId: data.schoolId,
 
         phoneNumber: data.phoneNumber,

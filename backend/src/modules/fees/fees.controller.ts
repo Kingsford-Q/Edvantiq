@@ -88,10 +88,16 @@ export async function updateFeeStructureController(req: Request, res: Response) 
       : req.params.feeId;
     const schoolId = (req as any).schoolId;
 
-    const updated = await prisma.feeStructure.update({
-      where: { id: feeId },
+    const result = await prisma.feeStructure.updateMany({
+      where: { id: feeId, schoolId },
       data: req.body,
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Fee structure not found" });
+    }
+
+    const updated = await prisma.feeStructure.findUnique({ where: { id: feeId } });
 
     return res.status(200).json(updated);
   } catch (error: any) {
@@ -104,10 +110,15 @@ export async function deleteFeeStructureController(req: Request, res: Response) 
     const feeId = Array.isArray(req.params.feeId)
       ? req.params.feeId[0]
       : req.params.feeId;
+    const schoolId = (req as any).schoolId;
 
-    await prisma.feeStructure.delete({
-      where: { id: feeId },
+    const result = await prisma.feeStructure.deleteMany({
+      where: { id: feeId, schoolId },
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Fee structure not found" });
+    }
 
     return res.status(200).json({
       message: "Fee structure deleted successfully",

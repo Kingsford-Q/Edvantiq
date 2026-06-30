@@ -6,7 +6,7 @@ import { getInbox, getSentMessages } from "./message.query.service.js";
 export async function inboxController(req: Request, res: Response) {
   try {
     const userId = (req as any).user.id;
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const messages = await getInbox(userId, schoolId);
 
@@ -19,7 +19,7 @@ export async function inboxController(req: Request, res: Response) {
 export async function sentController(req: Request, res: Response) {
   try {
     const userId = (req as any).user.id;
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const messages = await getSentMessages(userId, schoolId);
 

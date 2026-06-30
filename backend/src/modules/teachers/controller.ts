@@ -80,14 +80,21 @@ export async function getTeacherController(req: Request, res: Response) {
 
 export async function updateTeacherController(req: Request, res: Response) {
   try {
+    const schoolId = (req as any).schoolId;
     const teacherId = Array.isArray(req.params.teacherId)
       ? req.params.teacherId[0]
       : req.params.teacherId;
 
-    const updated = await prisma.teacher.update({
-      where: { id: teacherId },
+    const result = await prisma.teacher.updateMany({
+      where: { id: teacherId, schoolId },
       data: req.body,
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
+
+    const updated = await prisma.teacher.findUnique({ where: { id: teacherId } });
 
     return res.status(200).json(updated);
   } catch (error: any) {
@@ -97,13 +104,18 @@ export async function updateTeacherController(req: Request, res: Response) {
 
 export async function deleteTeacherController(req: Request, res: Response) {
   try {
+    const schoolId = (req as any).schoolId;
     const teacherId = Array.isArray(req.params.teacherId)
       ? req.params.teacherId[0]
       : req.params.teacherId;
 
-    await prisma.teacher.delete({
-      where: { id: teacherId },
+    const result = await prisma.teacher.deleteMany({
+      where: { id: teacherId, schoolId },
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Teacher not found" });
+    }
 
     return res.status(200).json({
       message: "Teacher deleted successfully",

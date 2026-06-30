@@ -71,9 +71,5 @@ app.use("/api/messages", messageQueryRoutes);
 app.use("/api/notifications", notificationRoutes);
 app.use("/api/teachers", teacherRoutes);
 app.use("/api/audit", auditRoutes);
-app.use("/api/fees", feeRoutes);
-app.use("/api/attendance", attendanceRoutes);
-app.use("/api/fees", feeRoutes);
-
 
 export default app;

@@ -54,7 +54,7 @@ router.put(
   "/:teacherId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission(PERMISSIONS.CREATE_TEACHER),
+  requirePermission(PERMISSIONS.UPDATE_TEACHER),
   updateTeacherController
 );
 
@@ -65,7 +65,7 @@ router.delete(
   "/:teacherId",
   authMiddleware,
   tenantMiddleware,
-  requirePermission(PERMISSIONS.CREATE_TEACHER),
+  requirePermission(PERMISSIONS.DELETE_TEACHER),
   deleteTeacherController
 );
 

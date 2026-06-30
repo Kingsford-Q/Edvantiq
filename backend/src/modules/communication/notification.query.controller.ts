@@ -6,7 +6,7 @@ import { getUserNotifications } from "./notification.query.service.js";
 export async function notificationFeedController(req: Request, res: Response) {
   try {
     const userId = (req as any).user.id;
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const notifications = await getUserNotifications(userId, schoolId);
 

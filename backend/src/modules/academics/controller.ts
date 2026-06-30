@@ -6,7 +6,7 @@ import { prisma } from "../../prisma.js";
 
 export async function createAssessmentController(req: Request, res: Response) {
   try {
-    const schoolId = (req as any).user.schoolId;
+    const schoolId = (req as any).schoolId;
 
     const assessment = await createAssessment({
       ...req.body,
@@ -85,10 +85,16 @@ export async function updateAssessmentController(req: Request, res: Response) {
       : req.params.assessmentId;
     const schoolId = (req as any).schoolId;
 
-    const updated = await prisma.assessment.update({
-      where: { id: assessmentId },
+    const result = await prisma.assessment.updateMany({
+      where: { id: assessmentId, schoolId },
       data: req.body,
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Assessment not found" });
+    }
+
+    const updated = await prisma.assessment.findUnique({ where: { id: assessmentId } });
 
     return res.status(200).json(updated);
   } catch (error: any) {
@@ -101,10 +107,15 @@ export async function deleteAssessmentController(req: Request, res: Response) {
     const assessmentId = Array.isArray(req.params.assessmentId)
       ? req.params.assessmentId[0]
       : req.params.assessmentId;
+    const schoolId = (req as any).schoolId;
 
-    await prisma.assessment.delete({
-      where: { id: assessmentId },
+    const result = await prisma.assessment.deleteMany({
+      where: { id: assessmentId, schoolId },
     });
+
+    if (result.count === 0) {
+      return res.status(404).json({ message: "Assessment not found" });
+    }
 
     return res.status(200).json({
       message: "Assessment deleted successfully",
