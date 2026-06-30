@@ -32,7 +32,7 @@ export default function LoginPage() {
       <div className="hidden lg:flex lg:w-1/2 bg-gradient-to-br from-blue-600 via-blue-700 to-indigo-800 relative overflow-hidden">
         <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iNjAiIGhlaWdodD0iNjAiIHZpZXdCb3g9IjAgMCA2MCA2MCIgeG1sbnM9Imh0dHA6Ly93d3cudzMub3JnLzIwMDAvc3ZnIj48ZyBmaWxsPSJub25lIiBmaWxsLXJ1bGU9ImV2ZW5vZGQiPjxnIGZpbGw9IiNmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSI+PGNpcmNsZSBjeD0iMzAiIGN5PSIzMCIgcj0iMiIvPjwvZz48L2c+PC9zdmc+')] opacity-50"></div>
         <div className="relative z-10 flex flex-col justify-center px-12 xl:px-20">
-          <div className="flex items-center gap-4 mb-8">
+          <div className="flex items-center gap-4 mb-8 ">
             <div className="w-14 h-14 bg-white/10 rounded-2xl flex items-center justify-center backdrop-blur-sm">
               <School className="w-8 h-8 text-white" />
             </div>
@@ -49,24 +49,6 @@ export default function LoginPage() {
           <p className="text-blue-100 text-lg max-w-md">
             A comprehensive platform for student management, academics, attendance, and fees tracking.
           </p>
-          <div className="mt-auto pt-12">
-            <div className="flex items-center gap-8">
-              <div>
-                <div className="text-3xl font-bold text-white">100%</div>
-                <div className="text-blue-200 text-sm">Data Isolation</div>
-              </div>
-              <div className="w-px h-12 bg-blue-500/30"></div>
-              <div>
-                <div className="text-3xl font-bold text-white">24/7</div>
-                <div className="text-blue-200 text-sm">Access</div>
-              </div>
-              <div className="w-px h-12 bg-blue-500/30"></div>
-              <div>
-                <div className="text-3xl font-bold text-white">Multi</div>
-                <div className="text-blue-200 text-sm">Tenant</div>
-              </div>
-            </div>
-          </div>
         </div>
       </div>
 
