@@ -89,7 +89,17 @@ export async function updateTeacherController(req: Request, res: Response) {
 
     const result = await prisma.teacher.updateMany({
       where: { id: teacherId, schoolId },
-      data: sanitizeUpdate(req.body),
+      data: sanitizeUpdate(req.body, [
+        "fullName",
+        "subject",
+        "email",
+        "phoneNumber",
+        "address",
+        "qualification",
+        "employmentType",
+        "hireDate",
+        "profileImageUrl",
+      ]),
     });
 
     if (result.count === 0) {

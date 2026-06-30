@@ -254,8 +254,16 @@ function TeacherModal({
 
     try {
       if (teacher) {
-        const { password: _password, ...updateData } = form;
-        await api.updateTeacher(teacher.id, updateData);
+        await api.updateTeacher(teacher.id, {
+          fullName: form.fullName,
+          email: form.email,
+          subject: form.subject,
+          phoneNumber: form.phoneNumber,
+          address: form.address,
+          qualification: form.qualification,
+          employmentType: form.employmentType,
+          hireDate: form.hireDate,
+        });
       } else {
         await api.onboardTeacher(form);
       }

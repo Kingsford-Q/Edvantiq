@@ -16,11 +16,35 @@ export async function createSessionController(req: Request, res: Response) {
       return res.status(400).json({ message: "date is invalid" });
     }
 
+    // teacherId on AttendanceSession references Teacher.id, not User.id —
+    // resolve the caller's Teacher profile (or let an ADMIN specify one
+    // explicitly when opening a session on a teacher's behalf).
+    let teacherId = req.body.teacherId;
+
+    if (!teacherId) {
+      const teacher = await prisma.teacher.findFirst({
+        where: { userId: user.id, schoolId },
+      });
+
+      if (!teacher) {
+        return res.status(400).json({
+          message: "No teacher profile linked to this account — pass teacherId explicitly",
+        });
+      }
+
+      teacherId = teacher.id;
+    } else {
+      const teacher = await prisma.teacher.findFirst({ where: { id: teacherId, schoolId } });
+      if (!teacher) {
+        return res.status(404).json({ message: "Teacher not found" });
+      }
+    }
+
     const session = await prisma.attendanceSession.create({
       data: {
         classId: req.body.classId,
         subjectId: req.body.subjectId,
-        teacherId: user.id,
+        teacherId,
         schoolId,
         date,
       },

@@ -570,13 +570,13 @@ export default function DashboardPage() {
         />
         <StatCard
           title="Pending Fees"
-          value={0}
+          value={invoices.filter((i) => i.status !== 'PAID').length}
           icon={DollarSign}
           color="amber"
         />
         <StatCard
           title="Invoices"
-          value={0}
+          value={invoices.length}
           icon={FileText}
           color="emerald"
         />
@@ -592,22 +592,42 @@ export default function DashboardPage() {
               label="Record Payment"
               description="Log a new fee payment"
               icon={DollarSign}
+              onClick={() => navigate('/fees')}
             />
             <QuickAction
               label="View Invoices"
               description="Check invoice status"
               icon={FileText}
+              onClick={() => navigate('/fees')}
             />
           </div>
         </div>
 
         <div className="card">
           <div className="card-header">
-            <h3 className="font-semibold text-gray-900">Recent Activity</h3>
+            <h3 className="font-semibold text-gray-900">Recent Invoices</h3>
           </div>
-          <div className="p-6 text-center text-gray-500">
-            <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
-            <p>No recent activity</p>
+          <div className="divide-y divide-gray-100">
+            {invoices.slice(0, 5).map((invoice) => (
+              <div key={invoice.id} className="p-4 flex items-center justify-between">
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{invoice.student?.fullName || 'Student'}</p>
+                  <p className="text-xs text-gray-500">${invoice.totalAmount.toLocaleString()}</p>
+                </div>
+                <span className={`badge ${
+                  invoice.status === 'PAID' ? 'badge-success' :
+                  invoice.status === 'PARTIAL' ? 'badge-warning' : 'badge-danger'
+                }`}>
+                  {invoice.status}
+                </span>
+              </div>
+            ))}
+            {invoices.length === 0 && (
+              <div className="p-8 text-center text-gray-500">
+                <FileText className="w-8 h-8 mx-auto mb-2 opacity-50" />
+                <p>No invoices yet</p>
+              </div>
+            )}
           </div>
         </div>
       </div>

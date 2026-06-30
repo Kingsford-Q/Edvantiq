@@ -94,7 +94,15 @@ export async function updateStudentController(req: Request, res: Response) {
         id: studentId,
         schoolId,
       },
-      data: sanitizeUpdate(req.body),
+      data: sanitizeUpdate(req.body, [
+        "fullName",
+        "indexNo",
+        "dateOfBirth",
+        "gender",
+        "address",
+        "phoneNumber",
+        "profileImageUrl",
+      ]),
     });
 
     if (result.count === 0) {

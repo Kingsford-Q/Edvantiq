@@ -17,7 +17,10 @@ in the repo root.
 - Backend: Node.js, Express 5, TypeScript (ESM, `NodeNext` modules)
 - ORM: Prisma 5 + PostgreSQL
 - Auth: JWT (7-day expiry), bcrypt password hashing
-- Frontend (planned, **not started yet**): React + Vite + Tailwind CSS
+- Frontend: React + Vite + Tailwind CSS + React Router, in `frontend/` — built and wired up to
+  every endpoint below, including a Super Admin "Platform" page (`frontend/src/pages/PlatformPage.tsx`)
+  for the cross-school access-request flow. `frontend/src/lib/api.ts` is the single HTTP client;
+  keep it in sync with this doc when either side changes.
 
 ## 2. Running the backend locally
 
@@ -164,14 +167,22 @@ No public registration endpoint exists. See section 3.
 | Method | Path | Auth | Body | Notes |
 |---|---|---|---|---|
 | POST | `/` | 🔑 SUPER_ADMIN | `{ name, type, location, adminEmail, adminPassword, adminName }` | Creates school + default roles + first ADMIN user. |
+| GET | `/` | 🔑 SUPER_ADMIN | — | List all schools on the platform |
+| GET | `/:id` | 🔑 ADMIN (own school) or SUPER_ADMIN | — | School details |
+| PUT | `/:id` | 🔑 ADMIN (own school) or SUPER_ADMIN | `{ name?, type?, location? }` | |
 
 ### Access Requests — `/api/access-requests` (Super Admin ↔ School Admin flow)
 | Method | Path | Auth | Body | Notes |
 |---|---|---|---|---|
 | POST | `/request` | 🔑 SUPER_ADMIN | `{ schoolId }` | Super Admin requests temporary access to a school |
+| GET | `/mine` | 🔑 SUPER_ADMIN | — | Super Admin's own requests across all schools, with `school` included — drives the "Platform" page |
 | GET | `/` | 🔑 ADMIN (own school) | — | List pending/approved/rejected requests for caller's school |
 | PATCH | `/:id/approve` | 🔑 ADMIN | — | Approves; sets 2-hour `expiresAt` |
 | PATCH | `/:id/reject` | 🔑 ADMIN | — | Rejects |
+
+Frontend flow: Super Admin calls `/mine` + `/schools` on a "Platform" page, requests access, then
+once `APPROVED` and unexpired, the client stores the school id (`x-school-id` sent automatically
+on every subsequent request) and behaves like an ADMIN inside that school until they "exit".
 
 ### Onboarding — `/api/onboarding` (all 🔑 authenticated, tenant-scoped)
 | Method | Path | Body |
@@ -220,10 +231,15 @@ Same CRUD shape. `GET /:subjectId` includes teacherAssignments, assessments(+res
 ### Attendance — `/api/attendance` (🔑 + tenant + permission)
 | Method | Path | Permission | Body |
 |---|---|---|---|
-| POST | `/session` | CREATE_ATTENDANCE_SESSION | `{ classId, subjectId?, date }` — `teacherId` taken from caller |
-| POST | `/mark` | MARK_ATTENDANCE | `{ sessionId, studentId, status: PRESENT\|ABSENT\|LATE }` |
-| GET | `/sessions` | VIEW_ATTENDANCE | — all sessions for school |
+| POST | `/session` | CREATE_ATTENDANCE_SESSION | `{ classId, subjectId?, date, teacherId? }` — `teacherId` is resolved from the caller's own Teacher profile (looked up by `userId`); pass it explicitly if an ADMIN with no Teacher profile is opening a session on a teacher's behalf, otherwise this 400s with a clear message |
+| POST | `/mark` | MARK_ATTENDANCE | `{ sessionId, studentId, status: PRESENT\|ABSENT\|LATE }` — upserts on `(sessionId, studentId)`, so re-marking a student updates their status instead of creating a duplicate row |
+| GET | `/sessions` | VIEW_ATTENDANCE | — all sessions for school, each with its `records` included |
 | GET | `/:sessionId` | VIEW_ATTENDANCE | — records for one session |
+
+⚠️ `teacherId` on `AttendanceSession` is a foreign key to `Teacher.id`, **not** `User.id` — don't
+ever pass a raw `req.user.id` there directly (this was a real bug, found and fixed: every session
+creation failed with an opaque FK-violation error until the controller started resolving the
+Teacher row first).
 
 ### Academics / Assessments — `/api/academics` (🔑 + permission)
 | Method | Path | Permission |
@@ -273,7 +289,16 @@ Same CRUD shape. `GET /:subjectId` includes teacherAssignments, assessments(+res
 ### Users — `/api/users`
 | Method | Path | Auth | Body |
 |---|---|---|---|
-| POST | `/` | 🔑 rbac(ADMIN) | `{ email, password, fullName, roleId, schoolId }` — note: takes a raw `roleId`, not a role name; frontend needs to fetch role IDs first (no "list roles" endpoint currently exists — gap, see Known Issues) |
+| POST | `/` | 🔑 rbac(ADMIN) | `{ email, password, fullName, roleId }` — `roleId` must belong to caller's school (validated server-side) |
+| GET | `/` | 🔑 any authenticated school member | — lightweight directory (`id, email, fullName, profileImageUrl, role.name`) for pickers like message recipients |
+| GET | `/roles` | 🔑 rbac(ADMIN) | — list this school's `Role` rows, for populating the `roleId` field above |
+
+### Self-service profile — `/api/me` (🔑 any authenticated user, no tenant middleware — works for SUPER_ADMIN too)
+| Method | Path | Body |
+|---|---|---|
+| GET | `/` | — current user's profile |
+| PUT | `/` | `{ fullName?, phoneNumber?, address?, profileImageUrl? }` |
+| POST | `/change-password` | `{ currentPassword, newPassword }` (newPassword ≥ 8 chars) |
 
 ### Audit — `/api/audit`
 | Method | Path | Auth |
@@ -283,26 +308,29 @@ Same CRUD shape. `GET /:subjectId` includes teacherAssignments, assessments(+res
 
 ---
 
-## 7. Known issues / open decisions (read before building auth screens)
+## 7. Known issues / open decisions
 
-1. **No "list roles" endpoint** — `POST /api/users` needs a `roleId`, but nothing returns the
-   roles for a school. The frontend will need either a new endpoint or to infer role IDs some
-   other way. Flag this to the backend owner when you hit it. This is the only remaining gap
-   from the original audit.
-2. Most non-ADMIN roles (TEACHER/STUDENT/PARENT/STAFF) only have a handful of permissions
+1. Most non-ADMIN roles (TEACHER/STUDENT/PARENT/STAFF) only have a handful of permissions
    wired up today (see RBAC section) — many screens will only make sense for ADMIN until that
-   expands.
-3. `Role`/`Permission` DB tables exist but aren't actually used for authorization — the live
+   expands further.
+2. `Role`/`Permission` DB tables exist but aren't actually used for authorization — the live
    permission system is the static `ROLE_PERMISSIONS` map in code. Don't build a "manage
    custom roles" UI yet; it wouldn't do anything.
-4. Frontend directory is currently **empty** — no scaffolding, no package.json, nothing.
-5. All update (`PUT`) endpoints strip `id`/`schoolId`/`createdAt`/`updatedAt` from the request
-   body server-side before applying it (`utils/sanitizeUpdate.ts`) — sending those fields in a
-   PUT body is silently ignored, not an error. Don't rely on being able to move a record between
-   schools via update; it's blocked by design.
-6. JWT tokens are valid for 7 days with no revocation/logout mechanism (logout is purely a
+3. All update (`PUT`) endpoints strip `id`/`schoolId`/`createdAt`/`updatedAt` from the request
+   body server-side before applying it (`utils/sanitizeUpdate.ts`); the Student/Teacher update
+   endpoints additionally whitelist their real columns so a stray field like `classId` (valid on
+   other resources) is silently dropped instead of crashing. Sending protected/unknown fields in
+   a PUT body is silently ignored, not an error.
+4. JWT tokens are valid for 7 days with no revocation/logout mechanism (logout is purely a
    frontend "drop the token" action). If you need server-side session kill (e.g. for an admin
    "force logout" feature), that's not built — flag it if the product needs it.
+5. `FeePayment` rows aren't linked to a specific `Invoice` in the schema, so `Invoice.paidAmount`
+   in API responses is *derived* (sum of the student's total payments, capped at the invoice
+   total) rather than stored. Fine for a student with one invoice at a time; would need a real
+   `invoiceId` FK on `FeePayment` if multiple concurrent invoices per student become a thing.
+6. Notification preferences (the toggles on the frontend Settings page) aren't backed by
+   anything — there's no preferences table. The notifications themselves (`/api/notifications`)
+   are real and working; only the on/off switches are cosmetic.
 
 ## 8. Recent backend work
 
@@ -354,5 +382,36 @@ Same CRUD shape. `GET /:subjectId` includes teacherAssignments, assessments(+res
   without it in production), and JWT_SECRET enforcement (fails to boot without it in production,
   warns loudly in dev).
 
-All findings from both passes have been fixed except the "list roles" gap (#1 above), which
-needs a small new endpoint rather than a bug fix.
+All findings from both passes have been fixed.
+
+**Pass 3 — frontend build-out + cross-stack hardening:**
+The frontend (`frontend/`, React/Vite/Tailwind) was built out against the API above. While
+wiring it up, several more real bugs surfaced — some backend, some frontend-only:
+- **Critical backend bug**: `POST /api/attendance/session` used `req.user.id` as
+  `AttendanceSession.teacherId`, but that FK points at `Teacher.id`, a different value — every
+  attendance session creation failed with an opaque FK-violation error. Fixed to resolve the
+  caller's Teacher profile (or accept an explicit `teacherId` from an ADMIN).
+- Added a `(sessionId, studentId)` unique constraint on `AttendanceRecord` + switched
+  `markAttendance` to an upsert — re-marking a student used to silently create duplicate rows.
+- Added computed `paidAmount` to invoice responses (was `undefined` → frontend rendered `$NaN`).
+- Added field allow-lists to the Student/Teacher update endpoints, on top of the existing
+  blacklist-only `sanitizeUpdate` — a client accidentally including a foreign field like
+  `classId` (legitimate on other resources, not on Student/Teacher) used to crash with a raw
+  Prisma error instead of being dropped.
+- Login response was missing `fullName`/`schoolId`/etc (only returned `id, email, role`) — broke
+  the UI immediately after login (`name.split is not a function` on the undefined `fullName`).
+- Expanded `TEACHER`/`STAFF`/`PARENT`/`STUDENT` permissions to include `VIEW_ANNOUNCEMENT`,
+  `SEND_MESSAGE`, `VIEW_MESSAGES`, `VIEW_NOTIFICATIONS` (the frontend nav showed these pages to
+  every role, but only ADMIN had permission to load them — every non-admin got a 403 on a page
+  the UI told them they could visit).
+- Added the previously-missing endpoints: `GET /api/users` (directory, any authenticated user),
+  `GET /api/users/roles`, `GET/PUT /api/me` + `POST /api/me/change-password`,
+  `GET/PUT /api/schools/:id`, `GET /api/schools` (Super Admin), `GET /api/access-requests/mine`,
+  `PUT/DELETE /api/communication/announcement/:id`, `GET /api/fees/payments`,
+  `GET /api/students/me` (self-service, STUDENT), `GET /api/students/my-children` (self-service,
+  PARENT, via `ParentStudent`).
+- Validated `createUser`'s `roleId` actually belongs to the caller's school (was trusted blindly).
+- All of the above were verified with live end-to-end HTTP testing against a running server
+  (school creation → admin login → teacher onboarding → class/student/fee/attendance/assessment/
+  result CRUD → Super Admin access-request → approve → cross-school access), not just
+  typechecking — every flow listed above was exercised for real and confirmed working.
