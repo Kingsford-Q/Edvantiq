@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { createTeacher } from "./service.js";
 import { logAction } from "../audit/service.js";
 import { AuditActions } from "../audit/actions.js";
+import { sanitizeUpdate } from "../../utils/sanitizeUpdate.js";
 
 export async function createTeacherController(req: Request, res: Response) {
   try {
@@ -9,7 +10,7 @@ export async function createTeacherController(req: Request, res: Response) {
     const user = (req as any).user;
 
     const teacher = await createTeacher({
-      ...req.body,
+      ...sanitizeUpdate(req.body),
       schoolId,
     });
 
@@ -27,11 +28,12 @@ export async function createTeacherController(req: Request, res: Response) {
 
     return res.status(201).json(teacher);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
 import { prisma } from "../../prisma.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function getTeachersController(req: Request, res: Response) {
   try {
@@ -46,7 +48,7 @@ export async function getTeachersController(req: Request, res: Response) {
 
     return res.status(200).json(teachers);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 export async function getTeacherController(req: Request, res: Response) {
@@ -74,7 +76,7 @@ export async function getTeacherController(req: Request, res: Response) {
 
     return res.status(200).json(teacher);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -87,7 +89,7 @@ export async function updateTeacherController(req: Request, res: Response) {
 
     const result = await prisma.teacher.updateMany({
       where: { id: teacherId, schoolId },
-      data: req.body,
+      data: sanitizeUpdate(req.body),
     });
 
     if (result.count === 0) {
@@ -98,7 +100,7 @@ export async function updateTeacherController(req: Request, res: Response) {
 
     return res.status(200).json(updated);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -121,6 +123,6 @@ export async function deleteTeacherController(req: Request, res: Response) {
       message: "Teacher deleted successfully",
     });
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

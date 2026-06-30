@@ -1,5 +1,6 @@
 import { prisma } from "../../prisma.js";
 import { hashPassword } from "../../utils/password.js";
+import { validateRequired } from "../../utils/validatePayload.js";
 
 export async function onboardStaff(data: {
   fullName: string;
@@ -8,6 +9,8 @@ export async function onboardStaff(data: {
   position: string;
   schoolId: string;
 }) {
+  validateRequired(data, ["fullName", "email", "password", "position"]);
+
   return await prisma.$transaction(async (tx) => {
     const hashedPassword = await hashPassword(data.password);
 

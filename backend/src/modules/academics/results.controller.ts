@@ -1,9 +1,18 @@
 import type { Request, Response } from "express";
 import { prisma } from "../../prisma.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
+
+const VALID_ASSESSMENT_TYPES = ["CA", "EXAM", "QUIZ"];
 
 export async function createAssessmentController(req: Request, res: Response) {
   try {
     const schoolId = (req as any).schoolId;
+
+    if (!VALID_ASSESSMENT_TYPES.includes(req.body.type)) {
+      return res.status(400).json({
+        message: `type must be one of: ${VALID_ASSESSMENT_TYPES.join(", ")}`,
+      });
+    }
 
     const assessment = await prisma.assessment.create({
       data: {
@@ -19,7 +28,7 @@ export async function createAssessmentController(req: Request, res: Response) {
 
     return res.status(201).json(assessment);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -44,6 +53,12 @@ export async function enterResultController(req: Request, res: Response) {
       return res.status(404).json({ message: "Student not found" });
     }
 
+    if (typeof score !== "number" || score < 0 || score > assessment.totalMark) {
+      return res.status(400).json({
+        message: `score must be a number between 0 and ${assessment.totalMark}`,
+      });
+    }
+
     const result = await prisma.assessmentResult.create({
       data: {
         assessmentId,
@@ -55,7 +70,7 @@ export async function enterResultController(req: Request, res: Response) {
 
     return res.status(201).json(result);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -77,7 +92,7 @@ export async function getResultsController(req: Request, res: Response) {
 
     return res.status(200).json(results);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -100,6 +115,6 @@ export async function getStudentResultsController(req: Request, res: Response) {
 
     return res.status(200).json(results);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

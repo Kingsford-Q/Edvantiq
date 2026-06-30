@@ -2,6 +2,7 @@
 
 import type { Request, Response } from "express";
 import { getUserNotifications } from "./notification.query.service.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function notificationFeedController(req: Request, res: Response) {
   try {
@@ -12,6 +13,6 @@ export async function notificationFeedController(req: Request, res: Response) {
 
     res.status(200).json(notifications);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

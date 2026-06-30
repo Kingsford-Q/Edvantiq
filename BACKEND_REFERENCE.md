@@ -2,7 +2,9 @@
 
 This document describes the current state of the EdvantiQ backend so a frontend can be
 built against it without re-reading the whole codebase. It reflects the backend **as of
-2026-06-30**, after a cleanup/bug-fix pass (see "Recent backend work" at the bottom).
+2026-06-30**, after two cleanup/bug-fix/hardening passes (see "Recent backend work" at the
+bottom). The backend is now in a solid, security-reviewed state — see section 7 for the
+one remaining real gap (no "list roles" endpoint).
 
 EdvantiQ is a multi-tenant School Management SaaS. Every school is an isolated tenant
 (`schoolId` on nearly every table). Full product spec: `EdvantiQ system design specification.md`
@@ -22,13 +24,22 @@ in the repo root.
 ```
 cd backend
 npm install
-# .env needs DATABASE_URL (Postgres) and optionally JWT_SECRET (falls back to "dev_secret")
+# .env needs: DATABASE_URL (Postgres), JWT_SECRET (server now refuses to boot in
+# production without it; dev falls back to an insecure default with a console warning)
 npx prisma migrate dev      # apply migrations
 npx prisma generate         # regenerate client (run after any schema.prisma change)
 npm run dev                 # nodemon + tsx, watches src/server.ts
+
+# One-time, after the DB is migrated: bootstrap the platform Super Admin account.
+# Set SUPER_ADMIN_EMAIL / SUPER_ADMIN_PASSWORD (12+ chars) / SUPER_ADMIN_NAME in .env first.
+npm run seed:super-admin
 ```
 
 Server listens on `process.env.PORT || 5000`. Base URL for all routes below: `http://localhost:5000`.
+
+In production, set `ALLOWED_ORIGINS` (comma-separated list of allowed frontend origins) —
+the server throws on boot if it's missing and `NODE_ENV=production`. In dev, CORS allows
+all origins if `ALLOWED_ORIGINS` is unset.
 
 Quick health checks: `GET /` and `GET /test` (no auth).
 
@@ -36,17 +47,21 @@ Quick health checks: `GET /` and `GET /test` (no auth).
 
 ## 3. Auth & request flow
 
-1. `POST /api/schools` — creates a School + its default roles (ADMIN/TEACHER/STUDENT) + the
-   first ADMIN user for that school. **⚠️ Currently has no auth guard at all — see Known Issues.**
-2. `POST /api/auth/login` — body `{ email, password }` → returns `{ user: { id, email, role }, token }`.
-   The JWT payload is `{ id, email, schoolId, role, iat, exp }`.
-3. Every protected request sends `Authorization: Bearer <token>`.
-4. `authMiddleware` verifies the JWT and sets `req.user = { id, email, schoolId, role }`.
-5. `tenantMiddleware` then resolves `req.schoolId`:
+1. **Bootstrap (one-time, ops task, not a frontend flow)**: `npm run seed:super-admin` creates
+   the platform's first `SUPER_ADMIN` user from env vars. Super Admins have `schoolId: null` —
+   they're platform-level accounts, not tied to any school.
+2. `POST /api/schools` — **requires a `SUPER_ADMIN` bearer token.** Creates a School + its
+   default roles (ADMIN/TEACHER/STUDENT) + the first ADMIN user for that school.
+3. `POST /api/auth/login` — body `{ email, password }` → returns `{ user: { id, email, role }, token }`.
+   The JWT payload is `{ id, email, schoolId, role, iat, exp }` (`schoolId` is `null` for
+   Super Admins). Rate-limited: 20 requests / 15 min per IP across all of `/api/auth`.
+4. Every protected request sends `Authorization: Bearer <token>`.
+5. `authMiddleware` verifies the JWT and sets `req.user = { id, email, schoolId, role }`.
+6. `tenantMiddleware` then resolves `req.schoolId`:
    - Normal users: `req.schoolId = req.user.schoolId`.
    - `SUPER_ADMIN`: must send header `x-school-id`; middleware checks there's an **approved,
      unexpired** access request for that school (see Access Requests below) before allowing it.
-6. Route-level guards on top of that:
+7. Route-level guards on top of that:
    - `requirePermission(PERMISSIONS.X)` — granular permission check against the user's role
      (see RBAC section). `SUPER_ADMIN` bypasses all permission checks.
    - `rbac([...roles])` — simple role allow-list (e.g. `rbac(["ADMIN"])`). `SUPER_ADMIN` always
@@ -56,14 +71,15 @@ Quick health checks: `GET /` and `GET /test` (no auth).
 **Always read `schoolId` from `req.schoolId` (tenant-resolved), never `req.user.schoolId`,**
 when writing backend code — this matters for the Super Admin cross-school access flow.
 
-### Roles
-`SUPER_ADMIN`, `ADMIN`, `TEACHER`, `STUDENT`, `PARENT`, `STAFF`. Roles are stored per-school in
-the `Role` table (created via `setupSchoolDefaults` when a school is created: ADMIN, TEACHER,
-STUDENT). PARENT and STAFF roles get created lazily — check before relying on them existing.
+There is **no public self-registration endpoint** — per the product spec, all accounts are
+created by an Admin via `/api/onboarding/*` or `/api/users`. Don't build a public sign-up
+screen; there isn't one to call.
 
-⚠️ There is currently **no implemented way to create a `SUPER_ADMIN` user** (no seed script, no
-endpoint). This needs to be decided/built before the Super-Admin-access-request flow can be
-exercised end-to-end. Flagged in Known Issues.
+### Roles
+`SUPER_ADMIN`, `ADMIN`, `TEACHER`, `STUDENT`, `PARENT`, `STAFF`. Non-platform roles are stored
+per-school in the `Role` table (created via `setupSchoolDefaults` when a school is created:
+ADMIN, TEACHER, STUDENT). PARENT and STAFF roles get created lazily — check before relying on
+them existing. `SUPER_ADMIN` is a single platform-wide `Role` row with `schoolId: null`.
 
 ---
 
@@ -140,13 +156,14 @@ plus any specific role/permission requirement.
 ### Auth — `/api/auth`
 | Method | Path | Auth | Body | Notes |
 |---|---|---|---|---|
-| POST | `/register` | 🔓 **public** | `{ email, password, fullName, role, schoolId }` | ⚠️ See Known Issues — lets caller self-assign any role incl. ADMIN. Recommend not using from the frontend; prefer onboarding endpoints. |
-| POST | `/login` | 🔓 | `{ email, password }` | Returns `{ user: {id,email,role}, token }` |
+| POST | `/login` | 🔓 | `{ email, password }` | Returns `{ user: {id,email,role}, token }`. Rate-limited. |
+
+No public registration endpoint exists. See section 3.
 
 ### Schools — `/api/schools`
 | Method | Path | Auth | Body | Notes |
 |---|---|---|---|---|
-| POST | `/` | 🔓 **public** | `{ name, type, location, adminEmail, adminPassword, adminName }` | Creates school + default roles + first ADMIN user. ⚠️ See Known Issues — currently has no auth guard. |
+| POST | `/` | 🔑 SUPER_ADMIN | `{ name, type, location, adminEmail, adminPassword, adminName }` | Creates school + default roles + first ADMIN user. |
 
 ### Access Requests — `/api/access-requests` (Super Admin ↔ School Admin flow)
 | Method | Path | Auth | Body | Notes |
@@ -268,28 +285,28 @@ Same CRUD shape. `GET /:subjectId` includes teacherAssignments, assessments(+res
 
 ## 7. Known issues / open decisions (read before building auth screens)
 
-1. **`POST /api/auth/register` is fully public and lets the caller pick their own `role` and
-   `schoolId`.** This is a privilege-escalation hole (anyone can self-register as ADMIN of any
-   school). Don't build a public sign-up screen against it. It will likely be removed/locked
-   down — confirm with backend owner before relying on it.
-2. **`POST /api/schools` has no auth guard at all.** Per the product spec this should require a
-   `SUPER_ADMIN`, but there's currently no way to create a `SUPER_ADMIN` account (no seed
-   script / bootstrap flow exists yet). Until that's resolved, anyone can create schools. Don't
-   expose a public "create your school" marketing-site flow against this endpoint as-is.
-3. **No "list roles" endpoint** — `POST /api/users` needs a `roleId`, but nothing returns the
+1. **No "list roles" endpoint** — `POST /api/users` needs a `roleId`, but nothing returns the
    roles for a school. The frontend will need either a new endpoint or to infer role IDs some
-   other way. Flag this to the backend owner when you hit it.
-4. Most non-ADMIN roles (TEACHER/STUDENT/PARENT/STAFF) only have a handful of permissions
+   other way. Flag this to the backend owner when you hit it. This is the only remaining gap
+   from the original audit.
+2. Most non-ADMIN roles (TEACHER/STUDENT/PARENT/STAFF) only have a handful of permissions
    wired up today (see RBAC section) — many screens will only make sense for ADMIN until that
    expands.
-5. `Role`/`Permission` DB tables exist but aren't actually used for authorization — the live
+3. `Role`/`Permission` DB tables exist but aren't actually used for authorization — the live
    permission system is the static `ROLE_PERMISSIONS` map in code. Don't build a "manage
    custom roles" UI yet; it wouldn't do anything.
-6. Frontend directory is currently **empty** — no scaffolding, no package.json, nothing.
+4. Frontend directory is currently **empty** — no scaffolding, no package.json, nothing.
+5. All update (`PUT`) endpoints strip `id`/`schoolId`/`createdAt`/`updatedAt` from the request
+   body server-side before applying it (`utils/sanitizeUpdate.ts`) — sending those fields in a
+   PUT body is silently ignored, not an error. Don't rely on being able to move a record between
+   schools via update; it's blocked by design.
+6. JWT tokens are valid for 7 days with no revocation/logout mechanism (logout is purely a
+   frontend "drop the token" action). If you need server-side session kill (e.g. for an admin
+   "force logout" feature), that's not built — flag it if the product needs it.
 
-## 8. Recent backend work (this pass)
+## 8. Recent backend work
 
-For context on what's already been fixed, so you don't re-discover the same things:
+**Pass 1 — compile/boot/correctness:**
 - Removed ~130 stale OneDrive sync-conflict duplicate files across the repo, initialized git.
 - Fixed `rbacMiddleware` (was checking permissions but every call site passed a role array —
   restored role-based checking).
@@ -305,16 +322,37 @@ For context on what's already been fixed, so you don't re-discover the same thin
   parent didn't).
 - Fixed several controllers reading `req.user.schoolId` instead of the tenant-resolved
   `req.schoolId` (breaks the Super Admin cross-school access flow).
-- Fixed `teachers` update/delete routes checking the wrong permission constant
-  (`CREATE_TEACHER` instead of `UPDATE_TEACHER`/`DELETE_TEACHER`).
-- Fixed `/api/audit` having a duplicate, unguarded `GET /` route registered before the
-  properly-guarded one (Express matches first-registered route, so the permission check was
-  dead code).
-- Removed several unused/dead duplicate files (`fees/controller.ts` + `fees/service.ts`,
-  `middleware/roles.ts`, `middleware/superAdminMiddleware.ts`, `utils/permissions.ts`, empty
-  scaffold files at `src/routes.ts`/`controller.ts`/`service.ts`).
-- Deduplicated route mounts in `app.ts` (fees/attendance routers were mounted 2-3× each).
+- Fixed `teachers` update/delete routes checking the wrong permission constant.
+- Fixed `/api/audit` having a duplicate, unguarded `GET /` route shadowing the guarded one.
+- Removed unused/dead duplicate files and deduplicated route mounts in `app.ts`.
 
-Items 1–3 in "Known issues" above were **found but intentionally left unfixed** pending a
-product decision (they're not simple bugs — they need a bootstrap/auth-model decision). Ask
-before building against them.
+**Pass 2 — Super Admin + full vulnerability sweep:**
+- Made `User.schoolId` nullable so `SUPER_ADMIN` can be a true platform-level account with no
+  home school (matches the product spec — "has NO default access inside schools").
+- Built `npm run seed:super-admin` to bootstrap the first Super Admin from env vars (idempotent).
+- Gated `POST /api/schools` behind `requireSuperAdmin` (was completely public before).
+- **Removed `POST /api/auth/register` entirely** — it was a public privilege-escalation hole
+  that let any caller self-assign `role: "ADMIN"` and any `schoolId`.
+- Fixed mass-assignment: every update endpoint passed `req.body` straight into Prisma's `data:`,
+  so a caller could include `schoolId` in a PUT body and reassign a record to a different
+  tenant even though the `where` clause correctly checked the *current* school. Added
+  `utils/sanitizeUpdate.ts` and applied it to every create/update controller.
+- Found and fixed `subjects` delete endpoint that was still missing `schoolId` scoping (missed
+  in pass 1).
+- Added input validation: assessment `type` enum, attendance `status` enum, attendance session
+  `date` parsing, result `score` bounds (0..totalMark), fee payment amount/method.
+- Wired up `payment.service.ts`'s invoice-recalculation logic, which existed but was dead code —
+  the live payment endpoint was creating `FeePayment` rows without ever updating the related
+  `Invoice.status`.
+- Sanitized error responses across all 26 controllers: raw `error.message` (which could leak
+  Prisma internals, e.g. we observed `"Invalid \`prisma.user.create()\` invocation in
+  D:\...\controller.ts:20:41..."` in a real response) is now routed through
+  `utils/errorResponse.ts`, which logs the real error server-side and returns a generic message
+  for anything that looks like an internal/Prisma error.
+- Added `helmet` (security headers), `express-rate-limit` (20 req/15min on `/api/auth`, 600
+  req/15min on the rest of `/api`), configurable CORS via `ALLOWED_ORIGINS` (fails to boot
+  without it in production), and JWT_SECRET enforcement (fails to boot without it in production,
+  warns loudly in dev).
+
+All findings from both passes have been fixed except the "list roles" gap (#1 above), which
+needs a small new endpoint rather than a bug fix.

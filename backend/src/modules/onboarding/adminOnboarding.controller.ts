@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { onboardAdmin } from "./adminOnboarding.service.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function adminOnboardingController(req: Request, res: Response) {
   try {
@@ -16,7 +17,7 @@ export async function adminOnboardingController(req: Request, res: Response) {
     });
   } catch (error: any) {
     return res.status(400).json({
-      message: error.message,
+      message: safeErrorMessage(error),
     });
   }
 }

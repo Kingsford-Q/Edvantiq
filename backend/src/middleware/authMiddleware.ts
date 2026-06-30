@@ -1,13 +1,12 @@
 import type { Request, Response, NextFunction } from "express";
 import jwt, { type JwtPayload } from "jsonwebtoken";
-
-const JWT_SECRET = process.env.JWT_SECRET || "dev_secret";
+import { JWT_SECRET } from "../utils/jwt.js";
 
 export interface AuthRequest extends Request {
   user?: {
     id: string;
     email: string;
-    schoolId: string;
+    schoolId: string | null;
     role: string;
   };
   schoolId?: string;

@@ -19,7 +19,7 @@ export async function getAuditLogs(schoolId: string) {
 
 export async function logAction(data: {
   userId: string;
-  schoolId: string;
+  schoolId?: string | null;
   action: string;
   entity: string;
   entityId?: string;

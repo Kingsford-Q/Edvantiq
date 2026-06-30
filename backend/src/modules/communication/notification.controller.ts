@@ -2,6 +2,7 @@
 
 import type { Request, Response } from "express";
 import { createNotification } from "./notification.service.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function createNotificationController(req: Request, res: Response) {
   try {
@@ -14,6 +15,6 @@ export async function createNotificationController(req: Request, res: Response) 
 
     res.status(201).json(notification);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

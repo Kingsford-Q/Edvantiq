@@ -1,16 +1,11 @@
 import type { Request, Response } from "express";
-import { registerUser, loginUser } from "./service.js";
 
 import { prisma } from "../../prisma.js";
 import bcrypt from "bcrypt";
 import { signToken } from "../../utils/jwt.js";
 import { logAction } from "../audit/service.js";
 import { AuditActions } from "../audit/actions.js";
-
-export async function register(req: Request, res: Response) {
-  const user = await registerUser(req.body);
-  return res.status(201).json(user);
-}
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 /**
  * 🔥 FULL LOGIN CONTROLLER (WITH AUDIT)
@@ -62,6 +57,6 @@ export async function loginController(req: Request, res: Response) {
       token,
     });
   } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: safeErrorMessage(error) });
   }
 }

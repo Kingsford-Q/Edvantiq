@@ -59,8 +59,9 @@ model User {
   roleId String?
   role   Role?   @relation(fields: [roleId], references: [id])
 
-  schoolId String
-  school   School @relation(fields: [schoolId], references: [id])
+  // 🔥 NULLABLE: SUPER_ADMIN is a platform-level account with no home school
+  schoolId String?
+  school   School? @relation(fields: [schoolId], references: [id])
 
   sentMessages     Message[] @relation("SentMessages")
   receivedMessages Message[] @relation("ReceivedMessages")

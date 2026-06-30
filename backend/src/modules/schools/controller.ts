@@ -2,6 +2,7 @@ import type { Request, Response } from "express";
 import { createSchool, setupSchoolDefaults } from "./service.js";
 import { prisma } from "../../prisma.js";
 import { hashPassword } from "../../utils/password.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function createSchoolController(req: Request, res: Response) {
   try {
@@ -36,6 +37,6 @@ export async function createSchoolController(req: Request, res: Response) {
       },
     });
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

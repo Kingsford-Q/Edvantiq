@@ -1,19 +1,21 @@
 import type { Request, Response } from "express";
 import { createClass } from "./service.js";
 import { prisma } from "../../prisma.js";
+import { sanitizeUpdate } from "../../utils/sanitizeUpdate.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function createClassController(req: Request, res: Response) {
   try {
     const schoolId = (req as any).schoolId;
 
     const classData = await createClass({
-      ...req.body,
+      ...sanitizeUpdate(req.body),
       schoolId,
     });
 
     res.status(201).json(classData);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -35,7 +37,7 @@ export async function getClassesController(req: Request, res: Response) {
 
     return res.status(200).json(classes);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -73,7 +75,7 @@ export async function getClassController(req: Request, res: Response) {
 
     return res.status(200).json(classData);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -86,7 +88,7 @@ export async function updateClassController(req: Request, res: Response) {
 
     const result = await prisma.class.updateMany({
       where: { id: classId, schoolId },
-      data: req.body,
+      data: sanitizeUpdate(req.body),
     });
 
     if (result.count === 0) {
@@ -97,7 +99,7 @@ export async function updateClassController(req: Request, res: Response) {
 
     return res.status(200).json(updated);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -120,6 +122,6 @@ export async function deleteClassController(req: Request, res: Response) {
       message: "Class deleted successfully",
     });
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

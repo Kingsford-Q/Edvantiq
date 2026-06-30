@@ -1,5 +1,7 @@
 import express from "express";
 import cors from "cors";
+import helmet from "helmet";
+import rateLimit from "express-rate-limit";
 
 import authRoutes from "./modules/auth/routes.js";
 import userRoutes from "./modules/users/routes.js";
@@ -28,8 +30,34 @@ import { tenantMiddleware } from "./middleware/tenantMiddleware.js";
 
 const app = express();
 
-app.use(cors());
-app.use(express.json());
+const allowedOrigins = process.env.ALLOWED_ORIGINS?.split(",").map((o) => o.trim());
+
+if (!allowedOrigins && process.env.NODE_ENV === "production") {
+  throw new Error(
+    "ALLOWED_ORIGINS must be set in production (comma-separated list of allowed origins)"
+  );
+}
+
+app.use(helmet());
+app.use(cors(allowedOrigins ? { origin: allowedOrigins } : undefined));
+app.use(express.json({ limit: "1mb" }));
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: "Too many attempts, please try again later." },
+});
+
+const apiLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  limit: 600,
+  standardHeaders: true,
+  legacyHeaders: false,
+});
+
+app.use("/api", apiLimiter);
 
 app.get("/", (req, res) => {
   res.json({ message: "API is working properly" });
@@ -46,7 +74,7 @@ app.get("/api/protected", authMiddleware, (req, res) => {
   });
 });
 
-app.use("/api/auth", authRoutes);
+app.use("/api/auth", authLimiter, authRoutes);
 app.use("/api/access-requests", accessRequestRoutes);
 app.use("/api/schools", schoolRoutes);
 

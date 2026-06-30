@@ -3,6 +3,7 @@
 import type { Request, Response } from "express";
 import { sendMessage } from "./message.service.js";
 import { prisma } from "../../prisma.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function sendMessageController(req: Request, res: Response) {
   try {
@@ -17,7 +18,7 @@ export async function sendMessageController(req: Request, res: Response) {
 
     res.status(201).json(message);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -57,7 +58,7 @@ export async function getMessagesController(req: Request, res: Response) {
 
     return res.status(200).json(messages);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -102,6 +103,6 @@ export async function getMessageController(req: Request, res: Response) {
 
     return res.status(200).json(message);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

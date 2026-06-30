@@ -2,6 +2,7 @@
 
 import type { Request, Response } from "express";
 import { getInbox, getSentMessages } from "./message.query.service.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function inboxController(req: Request, res: Response) {
   try {
@@ -12,7 +13,7 @@ export async function inboxController(req: Request, res: Response) {
 
     res.status(200).json(messages);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -25,6 +26,6 @@ export async function sentController(req: Request, res: Response) {
 
     res.status(200).json(messages);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

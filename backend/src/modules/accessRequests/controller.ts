@@ -3,6 +3,7 @@ import { prisma } from "../../prisma.js";
 import { AccessRequestStatus } from "@prisma/client";
 import { logAction } from "../audit/service.js";
 import { AuditActions } from "../audit/actions.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 // =========================
 // GET ACCESS REQUESTS
@@ -31,7 +32,7 @@ export async function getAccessRequestsController(req: Request, res: Response) {
 
     return res.status(200).json(requests);
   } catch (error: any) {
-    return res.status(500).json({ message: error.message });
+    return res.status(500).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -74,7 +75,7 @@ export async function approveAccessRequestController(req: Request, res: Response
 
     return res.status(200).json(updated);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -113,7 +114,7 @@ export async function rejectAccessRequestController(req: Request, res: Response)
 
     return res.status(200).json(updated);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -150,6 +151,6 @@ export async function requestAccessController(req: Request, res: Response) {
 
     return res.status(201).json(request);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

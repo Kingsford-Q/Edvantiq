@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { prisma } from "../../prisma.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 /**
  * CREATE ATTENDANCE SESSION
@@ -10,26 +11,39 @@ export async function createSessionController(req: Request, res: Response) {
     const schoolId = (req as any).schoolId;
     const user = (req as any).user;
 
+    const date = new Date(req.body.date);
+    if (isNaN(date.getTime())) {
+      return res.status(400).json({ message: "date is invalid" });
+    }
+
     const session = await prisma.attendanceSession.create({
       data: {
         classId: req.body.classId,
         subjectId: req.body.subjectId,
         teacherId: user.id,
         schoolId,
-        date: new Date(req.body.date),
+        date,
       },
     });
 
     return res.status(201).json(session);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
+
+const VALID_ATTENDANCE_STATUSES = ["PRESENT", "ABSENT", "LATE"];
 
 export async function markAttendanceController(req: Request, res: Response) {
   try {
     const schoolId = (req as any).schoolId;
     const { sessionId, studentId, status } = req.body;
+
+    if (!VALID_ATTENDANCE_STATUSES.includes(status)) {
+      return res.status(400).json({
+        message: `status must be one of: ${VALID_ATTENDANCE_STATUSES.join(", ")}`,
+      });
+    }
 
     const session = await prisma.attendanceSession.findFirst({
       where: { id: sessionId, schoolId },
@@ -57,7 +71,7 @@ export async function markAttendanceController(req: Request, res: Response) {
 
     return res.status(201).json(record);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -79,7 +93,7 @@ export async function getAttendanceSessionsController(req: Request, res: Respons
 
     return res.status(200).json(sessions);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -108,6 +122,6 @@ export async function getAttendanceRecordsController(req: Request, res: Response
 
     return res.status(200).json(records);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

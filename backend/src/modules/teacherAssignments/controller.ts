@@ -1,5 +1,6 @@
 import type { Request, Response } from "express";
 import { assignTeacher } from "./service.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function assignTeacherController(req: Request, res: Response) {
   try {
@@ -12,6 +13,6 @@ export async function assignTeacherController(req: Request, res: Response) {
 
     res.status(201).json(assignment);
   } catch (error: any) {
-    res.status(400).json({ message: error.message });
+    res.status(400).json({ message: safeErrorMessage(error) });
   }
 }

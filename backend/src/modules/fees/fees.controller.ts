@@ -1,5 +1,8 @@
 import type { Request, Response } from "express";
 import { prisma } from "../../prisma.js";
+import { sanitizeUpdate } from "../../utils/sanitizeUpdate.js";
+import { createFeePayment } from "./payment.service.js";
+import { safeErrorMessage } from "../../utils/errorResponse.js";
 
 export async function createFeeStructureController(req: Request, res: Response) {
   try {
@@ -18,7 +21,7 @@ export async function createFeeStructureController(req: Request, res: Response) 
 
     return res.status(201).json(fee);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -40,7 +43,7 @@ export async function getFeeStructuresController(req: Request, res: Response) {
 
     return res.status(200).json(feeStructures);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -77,7 +80,7 @@ export async function getFeeStructureController(req: Request, res: Response) {
 
     return res.status(200).json(feeStructure);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -90,7 +93,7 @@ export async function updateFeeStructureController(req: Request, res: Response) 
 
     const result = await prisma.feeStructure.updateMany({
       where: { id: feeId, schoolId },
-      data: req.body,
+      data: sanitizeUpdate(req.body),
     });
 
     if (result.count === 0) {
@@ -101,7 +104,7 @@ export async function updateFeeStructureController(req: Request, res: Response) 
 
     return res.status(200).json(updated);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -124,27 +127,38 @@ export async function deleteFeeStructureController(req: Request, res: Response) 
       message: "Fee structure deleted successfully",
     });
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
 export async function createFeePaymentController(req: Request, res: Response) {
   try {
     const schoolId = (req as any).schoolId;
+    const { studentId, feeId, amountPaid, method } = req.body;
 
-    const payment = await prisma.feePayment.create({
-      data: {
-        studentId: req.body.studentId,
-        feeId: req.body.feeId,
-        amountPaid: req.body.amountPaid,
-        method: req.body.method,
-        schoolId,
-      },
-    });
+    if (typeof amountPaid !== "number" || amountPaid <= 0) {
+      return res.status(400).json({ message: "amountPaid must be a positive number" });
+    }
+
+    if (typeof method !== "string" || !method.trim()) {
+      return res.status(400).json({ message: "method is required" });
+    }
+
+    const student = await prisma.student.findFirst({ where: { id: studentId, schoolId } });
+    if (!student) {
+      return res.status(404).json({ message: "Student not found" });
+    }
+
+    const feeStructure = await prisma.feeStructure.findFirst({ where: { id: feeId, schoolId } });
+    if (!feeStructure) {
+      return res.status(404).json({ message: "Fee structure not found" });
+    }
+
+    const payment = await createFeePayment({ studentId, feeId, amountPaid, method, schoolId });
 
     return res.status(201).json(payment);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -178,7 +192,7 @@ export async function getStudentBalanceController(req: Request, res: Response) {
       balance: totalFees - totalPaid,
     });
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -236,7 +250,7 @@ export async function createInvoiceController(req: Request, res: Response) {
       balance: totalAmount - totalPaid,
     });
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -254,7 +268,7 @@ export async function getInvoicesController(req: Request, res: Response) {
 
     return res.status(200).json(invoices);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
 
@@ -284,6 +298,6 @@ export async function getInvoiceController(req: Request, res: Response) {
 
     return res.status(200).json(invoice);
   } catch (error: any) {
-    return res.status(400).json({ message: error.message });
+    return res.status(400).json({ message: safeErrorMessage(error) });
   }
 }
